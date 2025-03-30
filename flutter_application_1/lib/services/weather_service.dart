@@ -30,4 +30,30 @@ class WeatherService {
       return null;
     }
   }
+
+  Future<Map<String, dynamic>?> getForecast(String city) async {
+    try {
+      final Uri url = Uri.https(baseUrl, "/data/2.5/forecast", {
+        "q": city,
+        "appid": apiKey,
+        "units": "metric",
+      });
+
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data.containsKey("list")) {
+          return data;
+        } else {
+          throw Exception("Datos no válidos recibidos.");
+        }
+      } else {
+        throw Exception("Error al obtener el pronóstico: ${response.body}");
+      }
+    } catch (e) {
+      print("Error en la solicitud del pronóstico: $e");
+      return null;
+    }
+  }
 }
