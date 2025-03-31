@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/services/weather_service.dart';
-import 'package:intl/intl.dart';
+import '../services/weather_service.dart';
 
 class WeatherScreen extends StatefulWidget {
   @override
@@ -8,152 +7,106 @@ class WeatherScreen extends StatefulWidget {
 }
 
 class _WeatherScreenState extends State<WeatherScreen> {
-  final WeatherService weatherService = WeatherService();
-  final TextEditingController cityController = TextEditingController();
-  String? selectedCity;
+  final WeatherService _weatherService = WeatherService();
+  String city = "London";
   Map<String, dynamic>? weatherData;
-  Map<String, dynamic>? forecastData;
-  List<String> cities = [];
+  List<dynamic> forecastData = [];
 
-  void fetchWeather(String city) async {
-    var data = await weatherService.getWeather(city);
-    var forecast = await weatherService.getForecast(city);
-    if (data != null && forecast != null) {
-      setState(() {
-        weatherData = data;
-        forecastData = forecast;
-        selectedCity = city;
-        if (!cities.contains(city)) {
-          cities.add(city);
-        }
-      });
-    }
+  @override
+  void initState() {
+    super.initState();
+    fetchWeather(city);
   }
 
-  List<Widget> buildForecastCards() {
-    if (forecastData == null || forecastData!["list"] == null) {
-      return [];
+  Future<void> fetchWeather(String cityName) async {
+    final weather = await _weatherService.getWeather(cityName);
+    final forecast = await _weatherService.getForecast(cityName);
+
+    if (weather != null && forecast != null) {
+      setState(() {
+        weatherData = weather;
+        forecastData = forecast["list"].sublist(0, 7); // 7 días de pronóstico
+      });
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Ciudad no encontrada")));
     }
-    List<dynamic> forecastList = forecastData!["list"].sublist(0, 5);
-    return forecastList.map((data) {
-      DateTime date = DateTime.fromMillisecondsSinceEpoch(data["dt"] * 1000);
-      String dayOfWeek = DateFormat('EEEE').format(date);
-      return Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-        color: Colors.white.withOpacity(0.8),
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(dayOfWeek, style: TextStyle(fontWeight: FontWeight.bold)),
-              Icon(Icons.wb_sunny, size: 40, color: Colors.orange),
-              Text("${data["main"]["temp"]}°C"),
-            ],
-          ),
-        ),
-      );
-    }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          selectedCity != null ? "Clima en $selectedCity" : "Buscar Clima",
-        ),
-        backgroundColor: Colors.blueAccent,
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.blue, Colors.lightBlueAccent],
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              TextField(
-                controller: cityController,
-                decoration: InputDecoration(
-                  labelText: "Buscar ciudad",
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onSubmitted: (value) {
-                  fetchWeather(value);
-                  cityController.clear();
-                },
+      appBar: AppBar(title: Text("Weather App")),
+      body: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(
+              decoration: InputDecoration(
+                labelText: "Buscar ciudad",
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: (value) {
+                setState(() {
+                  city = value;
+                });
+                fetchWeather(value);
+              },
+            ),
+            SizedBox(height: 20),
+            if (weatherData != null) ...[
+              Text(
+                "${weatherData!["name"]}, ${weatherData!["sys"]["country"]}",
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 10),
-              if (cities.isNotEmpty)
-                DropdownButton<String>(
-                  value: selectedCity,
-                  dropdownColor: Colors.white,
-                  hint: Text("Selecciona una ciudad"),
-                  items:
-                      cities.map((String city) {
-                        return DropdownMenuItem<String>(
-                          value: city,
-                          child: Text(
-                            city,
-                            style: TextStyle(color: Colors.black),
-                          ),
-                        );
-                      }).toList(),
-                  onChanged: (newCity) {
-                    fetchWeather(newCity!);
-                  },
-                ),
+              Image.network(
+                "https://openweathermap.org/img/wn/${weatherData!["weather"][0]["icon"]}@2x.png",
+                width: 100,
+                height: 100,
+              ),
+              Text(
+                "${weatherData!["main"]["temp"]}°C",
+                style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 10),
+              Text(weatherData!["weather"][0]["description"].toString()),
               SizedBox(height: 20),
+              Text(
+                "Pronóstico para los próximos 7 días:",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 10),
               Expanded(
-                child:
-                    weatherData == null
-                        ? Center(
-                          child: Text(
-                            "Ingresa una ciudad para ver el clima",
-                            style: TextStyle(color: Colors.white),
-                          ),
-                        )
-                        : Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: forecastData.length,
+                  itemBuilder: (context, index) {
+                    final day = forecastData[index];
+                    return Card(
+                      margin: EdgeInsets.symmetric(horizontal: 8.0),
+                      child: Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              "${weatherData!["main"]["temp"]}°C",
-                              style: TextStyle(
-                                fontSize: 50,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
+                            Text(day["dt_txt"].toString().substring(0, 10)),
+                            Image.network(
+                              "https://openweathermap.org/img/wn/${day["weather"][0]["icon"]}@2x.png",
+                              width: 50,
+                              height: 50,
                             ),
-                            Text(
-                              weatherData!["weather"][0]["description"],
-                              style: TextStyle(
-                                fontSize: 22,
-                                color: Colors.white70,
-                              ),
-                            ),
-                            SizedBox(height: 20),
-                            Container(
-                              height: 130,
-                              child: ListView(
-                                scrollDirection: Axis.horizontal,
-                                children: buildForecastCards(),
-                              ),
-                            ),
+                            Text("${day["main"]["temp"]}°C"),
                           ],
                         ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ],
-          ),
+          ],
         ),
       ),
     );

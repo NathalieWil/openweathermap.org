@@ -1,8 +1,9 @@
+// main.dart
 import 'package:flutter/material.dart';
 import 'screens/weather_screen.dart';
 
 void main() {
-  runApp(WeatherApp());
+  runApp(const WeatherApp());
 }
 
 class WeatherApp extends StatelessWidget {
